@@ -146,6 +146,10 @@ st.markdown(f"""
 <span class="d">{pd.Timestamp(asof['price']).strftime('%A %d %B %Y')}</span></div>
 """, unsafe_allow_html=True)
 st.caption("Who holds the stock, and which way it is moving.")
+st.warning(
+    "Practice dashboard: all supplied figures are sample data. "
+    "They do not represent verified market prices, purchases or exports."
+)
 
 KPIS = [
     ("price, $/oz", f"{p_now:,.0f}", f"{p_now/p_prev-1:+.1%} m/m",
@@ -293,3 +297,80 @@ st.caption("Sources when live: COMEX front-month futures (GC=F), FRED DFII10, "
            "tariff heading 7108. Event rules: Feb 22 reserve freeze, Jun 22 "
            "G7 import ban, Jun 25 Iran war, Nov 25 CBR sales begin, May 26 "
            "escalation.")
+with tabD:
+    st.subheader("Explore monthly buying and selling")
+    st.caption(
+        "Question: when did a country buy or sell gold? "
+        "This view uses the full sample period; "
+        "the ranking above covers only the latest 12 months."
+    )
+
+    countries = sorted(declared["country"].dropna().unique())
+    country = st.selectbox(
+        "Choose a country",
+        countries,
+        index=countries.index("China") if "China" in countries else 0,
+    )
+
+    country_data = (
+        declared.loc[
+            declared["country"] == country,
+            ["date", "net_purchases_t"],
+        ]
+        .copy()
+        .sort_values("date")
+    )
+
+    first_month = country_data["date"].min().strftime("%b %Y")
+    last_month = country_data["date"].max().strftime("%b %Y")
+
+    st.caption(
+        f"Sample period: {first_month} to {last_month}. "
+        "Positive values show net buying; negative values show net selling. "
+        "Missing observations remain missing."
+    )
+
+    fig = px.bar(
+        country_data,
+        x="date",
+        y="net_purchases_t",
+        title=f"{country}: monthly purchases and sales (sample data)",
+        labels={
+            "date": "Month",
+            "net_purchases_t": "Net purchases / sales (tonnes)",
+        },
+    )
+
+    fig.update_traces(
+        marker_color=dz.hue(country),
+        hovertemplate=(
+            "%{x|%b %Y}<br>"
+            "Net purchases / sales: %{y:+,.2f} tonnes"
+            "<extra></extra>"
+        ),
+    )
+
+    fig.add_hline(
+        y=0,
+        line_color=dz.INK,
+        line_width=1,
+    )
+
+    fig.update_yaxes(
+        side="left",
+        title="Net purchases / sales (tonnes)",
+    )
+    fig.update_layout(height=400)
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key="country_monthly_explorer",
+    )
+
+    with st.expander("View this country's sample data"):
+        st.dataframe(
+            country_data,
+            hide_index=True,
+            use_container_width=True,
+        )
